@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { extractErrorMessage } from "../lib/errors";
 import { AuthShell } from "./Login";
 
 export default function Register() {
@@ -19,17 +20,17 @@ export default function Register() {
     try {
       await register(username, email, pw);
       navigate("/");
-    } catch (ex: any) {
-      setErr(ex?.response?.data?.detail ?? "Registration failed");
+    } catch (ex) {
+      setErr(extractErrorMessage(ex, "Registration failed"));
     }
   };
 
   return (
     <AuthShell title="Create your library">
       <form onSubmit={onSubmit} className="space-y-3">
-        <Field label="Username" value={username} onChange={setUsername} />
+        <Field label="Username (min 2 chars)" value={username} onChange={setUsername} minLength={2} />
         <Field label="Email" value={email} onChange={setEmail} type="email" />
-        <Field label="Password" value={pw} onChange={setPw} type="password" />
+        <Field label="Password (min 6 chars)" value={pw} onChange={setPw} type="password" minLength={6} />
         {err && <div className="text-xs text-red-600">{err}</div>}
         <button
           type="submit"
@@ -54,11 +55,13 @@ function Field({
   value,
   onChange,
   type = "text",
+  minLength,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  minLength?: number;
 }) {
   return (
     <label className="block">
@@ -68,6 +71,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required
+        minLength={minLength}
         className="w-full rounded border border-zinc-200 bg-transparent px-3 py-2 text-sm outline-none focus:border-accent dark:border-zinc-700"
       />
     </label>

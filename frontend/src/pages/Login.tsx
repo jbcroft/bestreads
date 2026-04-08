@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { extractErrorMessage } from "../lib/errors";
 
 export default function Login() {
   const { login, isAuthed, loading } = useAuth();
@@ -17,8 +18,8 @@ export default function Login() {
     try {
       await login(id, pw);
       navigate("/");
-    } catch (ex: any) {
-      setErr("Invalid credentials");
+    } catch (ex) {
+      setErr(extractErrorMessage(ex, "Invalid credentials"));
     }
   };
 
