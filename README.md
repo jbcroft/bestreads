@@ -57,16 +57,112 @@ Then open:
 
 ## Using the MCP server
 
-1. Start the stack: `docker compose up --build`
-2. Register an account in the web app
-3. Go to **Settings → MCP API key → Generate key**
-4. Save the full key (shown only once)
-5. Point your MCP client at `http://localhost:8080/sse` with that key as a
-   bearer token, or set `BOOK_TRACKER_API_KEY` in `.env` and restart
-   `mcp-server` to hardcode it.
+The `mcp-server` container runs an SSE transport on port 8080, but the most
+reliable way to use Bestreads from Claude Desktop is to run the MCP server
+**locally over stdio** and let Claude Desktop spawn it. That avoids any
+fiddliness around SSE auth headers and keeps your API key out of `.env`.
 
 Tools exposed: `search_books`, `add_book`, `update_status`, `rate_book`,
 `get_stats`, `recommend_books`.
+
+### 1. Install the MCP server locally (one-time)
+
+Requires Python 3.12 or newer. Check with `python3 --version`; if it's
+older than 3.12, install a newer one with `brew install python@3.13` (or
+similar) and substitute it below.
+
+```bash
+cd mcp-server
+python3 -m venv .venv
+.venv/bin/pip install -e .
+```
+
+Confirm the install:
+
+```bash
+.venv/bin/python -c "import mcp, httpx, pydantic; print('ok')"
+# → ok
+```
+
+This creates `mcp-server/.venv/` with `mcp`, `httpx`, and `pydantic`
+installed. The venv's Python is what Claude Desktop will launch.
+
+### 2. Generate an API key in the web app
+
+1. Make sure the stack is running: `docker compose up -d`
+2. Open http://localhost:3001 and sign in (or register)
+3. Go to **Settings → MCP API key → Generate key**
+4. **Copy the full `bt_...` key immediately** — it's shown only once
+
+### 3. Edit Claude Desktop's config
+
+On macOS the config lives at:
+
+```
+~/Library/Application Support/Claude/claude_desktop_config.json
+```
+
+If the file doesn't exist yet, create it. If it already has an `mcpServers`
+object, add the `bestreads` entry alongside your existing servers.
+
+```json
+{
+  "mcpServers": {
+    "bestreads": {
+      "command": "/ABSOLUTE/PATH/TO/bestreads/mcp-server/.venv/bin/python",
+      "args": [
+        "/ABSOLUTE/PATH/TO/bestreads/mcp-server/server.py"
+      ],
+      "env": {
+        "API_BASE_URL": "http://localhost:8001/api/v1",
+        "BOOK_TRACKER_API_KEY": "bt_PASTE_YOUR_KEY_HERE",
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
+```
+
+Replace `/ABSOLUTE/PATH/TO/bestreads` with the real path on your machine
+(e.g. `/Users/yourname/code/bestreads`) and paste the key from step 2.
+
+### 4. Restart Claude Desktop
+
+Fully quit with `⌘Q` (don't just close the window) and reopen — Claude
+Desktop only re-reads the config on launch. In a new chat the plug/tools
+icon should show a `bestreads` server with all 6 tools listed.
+
+### 5. Try it out
+
+> *"What books are in my Bestreads library?"*
+
+Claude will call `search_books()` and list what you have.
+
+> *"Add 'Dune' by Frank Herbert to my want-to-read list."*
+
+Refresh http://localhost:3001 and the book appears on the dashboard.
+
+### Troubleshooting
+
+- **Server doesn't appear in Claude Desktop.** The `command` path is wrong
+  or the venv doesn't exist. Verify:
+  `ls /ABSOLUTE/PATH/TO/bestreads/mcp-server/.venv/bin/python`
+- **"Invalid credentials" from tool calls.** API key wasn't copied correctly
+  — it must start with `bt_`. Regenerate in **Settings** and update the
+  config.
+- **"Connection refused" from tool calls.** The FastAPI backend isn't
+  running. Check with `docker compose ps` — `fastapi` should show
+  `running` on `0.0.0.0:8001->8000/tcp`.
+- **Config changes aren't taking effect.** Claude Desktop caches the config
+  across sessions — force-quit with `⌘Q` and relaunch.
+
+### Alternative: SSE transport from the Docker stack
+
+If you'd rather use the containerized SSE server on `http://localhost:8080/sse`,
+set `BOOK_TRACKER_API_KEY` in `.env` before `docker compose up` so the
+`mcp-server` container picks it up. Some MCP clients support SSE URLs
+directly — consult your client's docs. For Claude Desktop, stdio (above) is
+the recommended path.
 
 ## Smoke test
 
