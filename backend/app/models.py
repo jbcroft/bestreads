@@ -6,6 +6,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Column,
+    Computed,
     DateTime,
     Enum,
     ForeignKey,
@@ -16,7 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import TSVECTOR, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -89,6 +90,20 @@ class Book(Base):
     )
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Postgres-generated tsvector (see alembic 0002). Read-only from ORM;
+    # Computed(persisted=True) prevents SQLAlchemy from including it in INSERTs.
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('english', "
+            "coalesce(title,'') || ' ' || "
+            "coalesce(author,'') || ' ' || "
+            "coalesce(notes,'') || ' ' || "
+            "coalesce(description,''))",
+            persisted=True,
+        ),
+        nullable=True,
+    )
 
     user: Mapped[User] = relationship(back_populates="books")
     tags: Mapped[list["Tag"]] = relationship(
