@@ -88,7 +88,8 @@ class BookCreate(BaseModel):
     rating: int | None = Field(default=None, ge=1, le=5)
     notes: str | None = None
     tag_names: list[str] | None = None
-    cover_image_path: str | None = None  # allow MCP to pass through from lookup
+    cover_image_path: str | None = None  # pre-downloaded filename (from /lookup)
+    cover_url: str | None = None  # remote URL to fetch opportunistically
 
 
 class BookUpdate(BaseModel):

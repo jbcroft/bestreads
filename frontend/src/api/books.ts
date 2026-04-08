@@ -31,6 +31,7 @@ export interface BookCreatePayload {
   notes?: string;
   tag_names?: string[];
   cover_image_path?: string;
+  cover_url?: string;
 }
 
 export async function createBook(payload: BookCreatePayload): Promise<Book> {

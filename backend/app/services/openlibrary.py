@@ -34,7 +34,7 @@ async def _resolve_author_name(client: httpx.AsyncClient, author_key: str) -> st
 async def lookup_isbn(isbn: str) -> dict | None:
     """Fetch metadata for a given ISBN from Open Library."""
     url = f"{OPEN_LIBRARY_BASE}/isbn/{isbn}.json"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         data = await _fetch_json(client, url)
         if not data:
             return None
@@ -73,7 +73,7 @@ async def lookup_isbn(isbn: str) -> dict | None:
 async def search_books(q: str, limit: int = 10) -> list[dict]:
     """Search Open Library by query for the quick-add flow."""
     url = f"{OPEN_LIBRARY_BASE}/search.json"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
             r = await client.get(url, params={"q": q, "limit": limit}, timeout=10.0)
         except httpx.RequestError:
@@ -113,9 +113,23 @@ async def search_books(q: str, limit: int = 10) -> list[dict]:
 async def download_cover(isbn: str) -> str | None:
     """Download large cover for ISBN into covers_dir; return filename or None."""
     url = f"{OPEN_LIBRARY_COVERS}/b/isbn/{isbn}-L.jpg"
-    async with httpx.AsyncClient() as client:
+    return await download_cover_from_url(url, f"ol_{isbn}.jpg")
+
+
+async def download_cover_from_url(url: str, suggested_name: str | None = None) -> str | None:
+    """Download an Open Library cover URL into covers_dir; return filename or None.
+
+    Accepts any cover URL (by isbn or by cover_id). Upgrades size-M to size-L
+    where possible for better frontend display.
+    """
+    if not url:
+        return None
+    # Prefer large size if the URL used a smaller one
+    upgraded = url.replace("-M.jpg", "-L.jpg").replace("-S.jpg", "-L.jpg")
+
+    async with httpx.AsyncClient(follow_redirects=True) as client:
         try:
-            r = await client.get(url, timeout=15.0)
+            r = await client.get(upgraded, timeout=15.0)
         except httpx.RequestError:
             return None
     if r.status_code != 200:
@@ -124,7 +138,13 @@ async def download_cover(isbn: str) -> str | None:
     if len(r.content) < 1024:
         return None
     os.makedirs(settings.covers_dir, exist_ok=True)
-    filename = f"ol_{isbn}.jpg"
+
+    if suggested_name:
+        filename = suggested_name
+    else:
+        # Derive filename from the URL's last segment; fall back to a uuid
+        tail = upgraded.rstrip("/").rsplit("/", 1)[-1] or "cover.jpg"
+        filename = f"ol_{tail}"
     path = Path(settings.covers_dir) / filename
     path.write_bytes(r.content)
     return filename

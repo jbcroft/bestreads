@@ -62,6 +62,7 @@ export default function QuickAdd() {
       title: picked.title,
       author: picked.author,
       isbn: picked.isbn ?? undefined,
+      cover_url: picked.cover_url ?? undefined,
       status: "want_to_read",
       tag_names,
     });
