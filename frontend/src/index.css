@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-stone-50 text-zinc-900 font-sans antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+
+html.dark body {
+  @apply bg-zinc-950 text-zinc-100;
+}
+
+h1, h2, h3 {
+  @apply font-serif tracking-tight;
+}
+
+/* Focus ring — editorial, no bright blue */
+*:focus-visible {
+  @apply outline-none ring-2 ring-accent/60 ring-offset-2 ring-offset-stone-50;
+}
+html.dark *:focus-visible {
+  @apply ring-offset-zinc-950;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-300 rounded;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  @apply bg-zinc-700;
+}
