@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: booktracker
+      POSTGRES_PASSWORD: booktracker
+      POSTGRES_DB: booktracker
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U booktracker"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  fastapi:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://booktracker:booktracker@postgres:5432/booktracker
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-random-secret}
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: 30
+      JWT_REFRESH_TOKEN_EXPIRE_DAYS: 7
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      COVERS_DIR: /app/covers
+    volumes:
+      - covers:/app/covers
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  mcp-server:
+    build:
+      context: ./mcp-server
+    environment:
+      API_BASE_URL: http://fastapi:8000/api/v1
+      BOOK_TRACKER_API_KEY: ${BOOK_TRACKER_API_KEY:-}
+    depends_on:
+      - fastapi
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - fastapi
+    volumes:
+      - covers:/covers:ro
+    ports:
+      - "3000:80"
+
+volumes:
+  pgdata:
+  covers:
