@@ -117,13 +117,15 @@ async def create_book(
     # Apply transition side-effects so started_at/finished_at are coherent
     apply_status_transition(book, BookStatus(payload.status))
 
-    session.add(book)
-    await session.flush()
-
+    # Resolve tags BEFORE adding the book to the session so we can set the
+    # collection on the transient instance (assigning to .tags on a persistent
+    # instance would trigger a sync lazy-load under async.)
+    tag_list: list[Tag] = []
     if payload.tag_names:
-        tags = await resolve_or_create_tags(session, user.id, payload.tag_names)
-        book.tags = tags
+        tag_list = await resolve_or_create_tags(session, user.id, payload.tag_names)
+    book.tags = tag_list
 
+    session.add(book)
     await touch_library(user, session)
     await session.commit()
     await session.refresh(book, attribute_names=["tags"])

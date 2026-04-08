@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0001"
@@ -43,10 +44,11 @@ def upgrade() -> None:
     op.create_index("ix_users_email", "users", ["email"])
     op.create_index("ix_users_api_key", "users", ["api_key"])
 
-    book_status = sa.Enum(
-        "want_to_read", "reading", "finished", name="book_status"
+    # Create the enum type via raw SQL to avoid double-creation with the
+    # column-level Enum in op.create_table below.
+    op.execute(
+        "CREATE TYPE book_status AS ENUM ('want_to_read', 'reading', 'finished')"
     )
-    book_status.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "books",
@@ -65,7 +67,7 @@ def upgrade() -> None:
         sa.Column("cover_image_path", sa.String(512), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(
+            postgresql.ENUM(
                 "want_to_read",
                 "reading",
                 "finished",
@@ -152,7 +154,7 @@ def downgrade() -> None:
     op.drop_index("ix_books_isbn", table_name="books")
     op.drop_index("ix_books_user_id", table_name="books")
     op.drop_table("books")
-    sa.Enum(name="book_status").drop(op.get_bind(), checkfirst=True)
+    op.execute("DROP TYPE IF EXISTS book_status")
     op.drop_index("ix_users_api_key", table_name="users")
     op.drop_index("ix_users_email", table_name="users")
     op.drop_index("ix_users_username", table_name="users")

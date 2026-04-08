@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
@@ -65,15 +65,17 @@ async def get_stats(
     )
     top_tags = [TagCount(name=name, count=int(cnt)) for name, cnt in top_tag_rows.all()]
 
-    # Finished by month — last 12 months
+    # Finished by month — last 12 months. Use raw SQL because parameterizing
+    # the to_char format string causes Postgres to treat SELECT and GROUP BY
+    # expressions as different, raising a grouping error.
     month_rows = await session.execute(
-        select(
-            func.to_char(Book.finished_at, "YYYY-MM").label("month"),
-            func.count().label("cnt"),
-        )
-        .where(Book.user_id == user.id, Book.finished_at.is_not(None))
-        .group_by(func.to_char(Book.finished_at, "YYYY-MM"))
-        .order_by(func.to_char(Book.finished_at, "YYYY-MM"))
+        text(
+            "SELECT to_char(finished_at, 'YYYY-MM') AS month, count(*) AS cnt "
+            "FROM books "
+            "WHERE user_id = :uid AND finished_at IS NOT NULL "
+            "GROUP BY 1 ORDER BY 1"
+        ),
+        {"uid": user.id},
     )
     rows = {m: int(c) for m, c in month_rows.all()}
 

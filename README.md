@@ -14,9 +14,9 @@ docker compose up --build
 
 Then open:
 
-- **App** → http://localhost:3000
+- **App** → http://localhost:3001
 - **MCP server (SSE)** → http://localhost:8080
-- **FastAPI docs (dev only)** → http://localhost:8000/docs (port not exposed in prod compose)
+- **FastAPI docs** → http://localhost:8001/docs
 
 ## Architecture
 
@@ -74,7 +74,7 @@ After `docker compose up -d --build`:
 
 ```bash
 pip install httpx pytest pytest-asyncio
-BASE_URL=http://localhost:8000 pytest backend/tests/test_smoke.py -v
+BASE_URL=http://localhost:8001 pytest backend/tests/test_smoke.py -v
 ```
 
 The test walks the full happy path: register → login → add 5 books → start/
