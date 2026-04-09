@@ -83,6 +83,16 @@ async def test_full_stack_smoke() -> None:
         assert r.json()["status"] == "want_to_read"
         assert r.json()["finished_at"] is None
 
+        # --- DNF: start then abandon ---
+        r = await c.post(f"/books/{book_ids[3]}/start", headers=auth)
+        assert r.status_code == 200 and r.json()["status"] == "reading"
+        r = await c.post(f"/books/{book_ids[3]}/dnf", headers=auth)
+        assert r.status_code == 200
+        dnf_book = r.json()
+        assert dnf_book["status"] == "dnf"
+        assert dnf_book["started_at"] is not None
+        assert dnf_book["finished_at"] is None
+
         # --- rate + notes (PATCH) ---
         r = await c.patch(
             f"/books/{book_ids[2]}",
@@ -107,8 +117,12 @@ async def test_full_stack_smoke() -> None:
         r = await c.get("/search", params={"q": "wind"}, headers=auth)
         assert r.status_code == 200
         grouped = r.json()
+        assert "dnf" in grouped
         total = (
-            len(grouped["want_to_read"]) + len(grouped["reading"]) + len(grouped["finished"])
+            len(grouped["want_to_read"])
+            + len(grouped["reading"])
+            + len(grouped["finished"])
+            + len(grouped["dnf"])
         )
         assert total >= 1
 
@@ -118,6 +132,9 @@ async def test_full_stack_smoke() -> None:
         stats = r.json()
         assert stats["total_books"] == 5
         assert "by_status" in stats
+        assert stats["by_status"].get("dnf", 0) >= 1
+        # DNF books must not inflate completion metrics.
+        assert stats["finished_this_year"] == 0
         assert len(stats["finished_by_month"]) == 12
 
         # --- recommendations: must at least respond sanely ---

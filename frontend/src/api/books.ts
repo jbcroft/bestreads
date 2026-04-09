@@ -51,9 +51,11 @@ export async function deleteBook(id: string): Promise<void> {
   await api.delete(`/books/${id}`);
 }
 
+export type TransitionAction = "start" | "finish" | "reset" | "dnf";
+
 export async function transitionBook(
   id: string,
-  action: "start" | "finish" | "reset"
+  action: TransitionAction
 ): Promise<Book> {
   const r = await api.post<Book>(`/books/${id}/${action}`);
   return r.data;
@@ -120,7 +122,7 @@ export function useBookMutations() {
     onSuccess: invalidate,
   });
   const transition = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: "start" | "finish" | "reset" }) =>
+    mutationFn: ({ id, action }: { id: string; action: TransitionAction }) =>
       transitionBook(id, action),
     onSuccess: (book) => {
       invalidate();

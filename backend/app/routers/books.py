@@ -247,6 +247,21 @@ async def reset_book(
     return book_to_read(book)
 
 
+@router.post("/{book_id}/dnf", response_model=BookRead)
+async def dnf_book(
+    book_id: UUID,
+    user: User = Depends(get_auth_user),
+    session: AsyncSession = Depends(get_session),
+) -> BookRead:
+    book = await _load_book(session, book_id, user)
+    apply_status_transition(book, BookStatus.dnf)
+    await touch_library(user, session)
+    session.add(book)
+    await session.commit()
+    await session.refresh(book, attribute_names=["tags"])
+    return book_to_read(book)
+
+
 # ---------- Book tags (replace set) ----------
 
 

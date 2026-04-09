@@ -36,6 +36,7 @@ async def search(
         "want_to_read": [],
         "reading": [],
         "finished": [],
+        "dnf": [],
     }
     for b in books:
         key = b.status.value if hasattr(b.status, "value") else str(b.status)

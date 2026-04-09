@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { Edit3, Trash2 } from "lucide-react";
-import { useBook, useBookMutations } from "../api/books";
+import { useBook, useBookMutations, TransitionAction } from "../api/books";
 import StatusControl from "../components/StatusControl";
 import StarRating from "../components/StarRating";
 import TagChips from "../components/TagChips";
@@ -21,7 +21,7 @@ export default function BookDetail() {
     return <div className="h-64 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-900" />;
   }
 
-  const onTransition = async (action: "start" | "finish" | "reset") => {
+  const onTransition = async (action: TransitionAction) => {
     await transition.mutateAsync({ id: book.id, action });
     toast.push("Status updated", "success");
   };

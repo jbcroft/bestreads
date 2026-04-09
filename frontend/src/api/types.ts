@@ -1,4 +1,4 @@
-export type BookStatus = "want_to_read" | "reading" | "finished";
+export type BookStatus = "want_to_read" | "reading" | "finished" | "dnf";
 
 export interface Tag {
   id: string;
@@ -49,6 +49,7 @@ export interface SearchResponse {
   want_to_read: Book[];
   reading: Book[];
   finished: Book[];
+  dnf: Book[];
 }
 
 export interface LookupResult {

@@ -25,7 +25,7 @@ async def get_stats(
         .where(Book.user_id == user.id)
         .group_by(Book.status)
     )
-    by_status = {"want_to_read": 0, "reading": 0, "finished": 0}
+    by_status = {"want_to_read": 0, "reading": 0, "finished": 0, "dnf": 0}
     total = 0
     for s, c in status_rows.all():
         key = s.value if hasattr(s, "value") else str(s)

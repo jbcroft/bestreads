@@ -6,6 +6,7 @@ export default function Dashboard() {
   const wantQ = useBooks({ status: "want_to_read" });
   const readingQ = useBooks({ status: "reading" });
   const finishedQ = useBooks({ status: "finished" });
+  const dnfQ = useBooks({ status: "dnf" });
 
   return (
     <div className="space-y-12">
@@ -33,6 +34,14 @@ export default function Dashboard() {
         loading={finishedQ.isLoading}
       >
         {finishedQ.data && <CoverGrid books={finishedQ.data} />}
+      </Shelf>
+
+      <Shelf
+        title="Did not finish"
+        count={dnfQ.data?.length ?? 0}
+        loading={dnfQ.isLoading}
+      >
+        {dnfQ.data && <CoverGrid books={dnfQ.data} />}
       </Shelf>
     </div>
   );

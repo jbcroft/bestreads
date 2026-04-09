@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import BookStatus
 
-BookStatusLiteral = Literal["want_to_read", "reading", "finished"]
+BookStatusLiteral = Literal["want_to_read", "reading", "finished", "dnf"]
 
 # ---------- Users / Auth ----------
 
@@ -148,6 +148,7 @@ class SearchResponse(BaseModel):
     want_to_read: list[BookRead]
     reading: list[BookRead]
     finished: list[BookRead]
+    dnf: list[BookRead]
 
 
 # ---------- Lookup ----------
