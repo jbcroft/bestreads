@@ -147,6 +147,24 @@ async def create_book(
             await session.commit()
             await session.refresh(book, attribute_names=["tags"])
 
+    # Opportunistic description fetch from Open Library.
+    if not book.description:
+        from ..services.openlibrary import fetch_description
+
+        try:
+            desc = await fetch_description(
+                title=book.title,
+                author=book.author,
+                isbn=book.isbn,
+            )
+        except Exception:
+            desc = None
+        if desc:
+            book.description = desc
+            session.add(book)
+            await session.commit()
+            await session.refresh(book, attribute_names=["tags"])
+
     return book_to_read(book)
 
 
