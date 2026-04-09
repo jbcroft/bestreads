@@ -130,24 +130,17 @@ async def create_book(
     await session.commit()
     await session.refresh(book, attribute_names=["tags"])
 
-    # Opportunistic cover download. Priority:
-    #   1) explicit cover_url from the client (e.g. quick-add chose an
-    #      Open Library search result that had a cover_i but no isbn)
-    #   2) ISBN-based cover lookup against Open Library
+    # Opportunistic cover download via the resolver cascade:
+    #   cover_url → ISBN → title+author search
     if not book.cover_image_path:
-        local: str | None = None
-        try:
-            if payload.cover_url:
-                from ..services.openlibrary import download_cover_from_url
+        from ..services.cover_resolver import resolve_book_cover
 
-                local = await download_cover_from_url(payload.cover_url)
-            if not local and book.isbn:
-                from ..services.openlibrary import download_cover
-
-                local = await download_cover(book.isbn)
-        except Exception:
-            local = None
-
+        local = await resolve_book_cover(
+            title=book.title,
+            author=book.author,
+            isbn=book.isbn,
+            cover_url=payload.cover_url,
+        )
         if local:
             book.cover_image_path = local
             session.add(book)
