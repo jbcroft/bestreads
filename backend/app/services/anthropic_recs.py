@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
+import anthropic
 from anthropic import AsyncAnthropic
 
 from ..config import settings
 from ..models import Book
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a well-read, thoughtful literary advisor. "
@@ -76,7 +80,14 @@ async def generate_recommendations(
     if not settings.anthropic_api_key:
         return []
 
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    # Fail fast rather than hanging the frontend on the SDK's default 10-minute
+    # timeout (and its 2 automatic retries) when the network path to
+    # api.anthropic.com is unhealthy. ~10s total worst case.
+    client = AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=10.0,
+        max_retries=0,
+    )
     summary = build_library_summary(books)
     constraints: list[str] = []
     if mood:
@@ -94,12 +105,18 @@ async def generate_recommendations(
         f"Return a JSON array of {count} objects with keys title, author, reason."
     )
 
-    message = await client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_message}],
-    )
+    try:
+        message = await client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message}],
+        )
+    except anthropic.APIError as exc:
+        # Any SDK-level failure (timeout, connection, auth, rate limit, 5xx)
+        # degrades to "no recommendations" rather than a 500 from the router.
+        logger.warning("anthropic request failed: %s: %s", type(exc).__name__, exc)
+        return []
 
     text_parts: list[str] = []
     for block in message.content:
