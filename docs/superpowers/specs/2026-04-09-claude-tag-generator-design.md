@@ -64,9 +64,11 @@ The module is isolated: it never touches the database, never knows about `Book` 
 
 ### Prompt shape
 
-**System prompt** (stable, ~250 tokens):
+**System prompt** (stable, ~260 tokens):
 
 > You are a book classifier. Given a book's title, author, and description, produce a small set of concise tags covering its genre and main themes or subject matter.
+>
+> Respond with ONLY a JSON array of tag strings — no preamble, no explanation, no markdown code fences.
 >
 > Hard constraints:
 > - Return 2 to 5 tags total.
@@ -85,27 +87,16 @@ The module is isolated: it never touches the database, never knows about `Book` 
 > - Author: Frank Herbert
 > - Description: Set on the desert planet Arrakis…
 
-### Response format — structured output
+### Response format — manual JSON parsing
 
-Use `output_config.format` with a JSON schema instead of manual fence-stripping and regex parsing. This guarantees the response is a valid JSON object matching the schema:
+The spec originally called for structured outputs (`output_config.format`), but the installed anthropic SDK version (0.92.0) doesn't surface that parameter in its typed params, and the current Docker networking issue makes it impossible to verify the API round-trip before implementation. We fall back to the same manual JSON parsing approach `anthropic_recs._parse_recommendations` already uses successfully in this codebase:
 
-```python
-output_config={
-    "format": {
-        "type": "json_schema",
-        "schema": {
-            "type": "object",
-            "properties": {
-                "tags": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["tags"],
-            "additionalProperties": False,
-        },
-    },
-}
-```
+- Ask Claude to respond with ONLY a JSON array of strings — no preamble, no markdown fences.
+- Strip optional ```json … ``` fences from the returned text.
+- `json.loads` the cleaned string; if that fails, regex-extract the first `[...]` block and retry.
+- If everything fails, log a warning with the raw response and return `[]`.
 
-The Claude API's JSON schema subset does not support `minItems`/`maxItems`, so the "2–5 tags" rule is enforced in the prompt and clamped client-side in the normalizer.
+The "2–5 tags" rule is enforced in the prompt and clamped client-side in the normalizer regardless.
 
 ### Client-side normalizer
 
