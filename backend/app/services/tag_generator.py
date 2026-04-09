@@ -139,7 +139,9 @@ async def generate_book_tags(
         max_retries=0,
     )
 
-    vocab_json = json.dumps(existing_user_tags)
+    # Defensive coerce: callers are typed list[str] but this is the only
+    # place in the never-raises function that could raise on bad input.
+    vocab_json = json.dumps([str(t) for t in existing_user_tags])
     desc_line = (
         f"- Description: {description}"
         if description

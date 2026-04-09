@@ -1,4 +1,4 @@
-from app.services.tag_generator import _normalize_tags
+from app.services.tag_generator import _normalize_tags, _parse_tag_array
 
 
 def test_lowercases_and_dedupes():
@@ -60,3 +60,26 @@ def test_rejects_leading_hyphen():
 
 def test_empty_input():
     assert _normalize_tags([]) == []
+
+
+def test_parse_strips_json_fence():
+    assert _parse_tag_array('```json\n["scifi", "dystopia"]\n```') == ["scifi", "dystopia"]
+
+
+def test_parse_strips_bare_fence():
+    assert _parse_tag_array('```\n["fantasy"]\n```') == ["fantasy"]
+
+
+def test_parse_extracts_embedded_array():
+    assert _parse_tag_array('Sure! Here you go: ["scifi", "dystopia"] hope that helps') == ["scifi", "dystopia"]
+
+
+def test_parse_returns_empty_on_garbage():
+    assert _parse_tag_array("not json at all") == []
+
+
+def test_parse_returns_empty_on_object_shape():
+    # Claude sometimes slips into {"tags": [...]} despite the prompt.
+    # We return [] rather than silently extracting — the warning log on
+    # empty normalization in generate_book_tags will reveal it.
+    assert _parse_tag_array('{"tags": ["scifi"]}') == []
