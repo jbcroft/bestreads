@@ -165,6 +165,35 @@ async def create_book(
             await session.commit()
             await session.refresh(book, attribute_names=["tags"])
 
+    # Opportunistic tag generation via Claude. Runs on every POST /books,
+    # even when the user passed explicit tag_names — Claude's tags merge
+    # on top of manual ones. Failure degrades silently.
+    try:
+        from ..services.tag_generator import generate_book_tags
+        from ..services.tags import load_user_tag_names
+
+        existing_vocab = await load_user_tag_names(session, user.id)
+        suggested = await generate_book_tags(
+            title=book.title,
+            author=book.author,
+            description=book.description,
+            existing_user_tags=existing_vocab,
+        )
+    except Exception:
+        suggested = []
+
+    if suggested:
+        new_tags = await resolve_or_create_tags(session, user.id, suggested)
+        existing_ids = {t.id for t in book.tags}
+        actually_new = [t for t in new_tags if t.id not in existing_ids]
+        if actually_new:
+            for t in actually_new:
+                book.tags.append(t)
+            session.add(book)
+            await touch_library(user, session)
+            await session.commit()
+            await session.refresh(book, attribute_names=["tags"])
+
     return book_to_read(book)
 
 
