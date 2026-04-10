@@ -192,7 +192,7 @@ class RecommendationsResponse(BaseModel):
 
 
 class NetworkNode(BaseModel):
-    id: UUID
+    id: str
     title: str
     author: str
     cluster: int
@@ -203,8 +203,8 @@ class NetworkNode(BaseModel):
 
 
 class NetworkEdge(BaseModel):
-    source: UUID
-    target: UUID
+    source: str
+    target: str
     weight: float
 
 
