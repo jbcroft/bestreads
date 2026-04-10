@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Library from "./pages/Library";
 import BookDetail from "./pages/BookDetail";
+import Network from "./pages/Network";
 import Stats from "./pages/Stats";
 import Settings from "./pages/Settings";
 
@@ -29,6 +30,7 @@ export default function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/library" element={<Library />} />
                 <Route path="/books/:id" element={<BookDetail />} />
+                <Route path="/network" element={<Network />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

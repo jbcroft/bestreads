@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import BookStatus
 
-BookStatusLiteral = Literal["want_to_read", "reading", "finished"]
+BookStatusLiteral = Literal["want_to_read", "reading", "finished", "dnf"]
 
 # ---------- Users / Auth ----------
 
@@ -148,6 +148,7 @@ class SearchResponse(BaseModel):
     want_to_read: list[BookRead]
     reading: list[BookRead]
     finished: list[BookRead]
+    dnf: list[BookRead]
 
 
 # ---------- Lookup ----------
@@ -185,3 +186,35 @@ class RecommendationsResponse(BaseModel):
     message: str | None = None
     recommendations: list[RecommendationItem] = Field(default_factory=list)
     generated_at: datetime | None = None
+
+
+# ---------- Network / Segmentation ----------
+
+
+class NetworkNode(BaseModel):
+    id: str
+    title: str
+    author: str
+    cluster: int
+    tags: list[str]
+    description: str | None
+    rating: int | None
+    cover_url: str | None
+
+
+class NetworkEdge(BaseModel):
+    source: str
+    target: str
+    weight: float
+
+
+class NetworkCluster(BaseModel):
+    id: int
+    label: str
+    color: str
+
+
+class NetworkResponse(BaseModel):
+    clusters: list[NetworkCluster]
+    nodes: list[NetworkNode]
+    edges: list[NetworkEdge]

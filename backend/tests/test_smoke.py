@@ -83,6 +83,16 @@ async def test_full_stack_smoke() -> None:
         assert r.json()["status"] == "want_to_read"
         assert r.json()["finished_at"] is None
 
+        # --- DNF: start then abandon ---
+        r = await c.post(f"/books/{book_ids[3]}/start", headers=auth)
+        assert r.status_code == 200 and r.json()["status"] == "reading"
+        r = await c.post(f"/books/{book_ids[3]}/dnf", headers=auth)
+        assert r.status_code == 200
+        dnf_book = r.json()
+        assert dnf_book["status"] == "dnf"
+        assert dnf_book["started_at"] is not None
+        assert dnf_book["finished_at"] is None
+
         # --- rate + notes (PATCH) ---
         r = await c.patch(
             f"/books/{book_ids[2]}",
@@ -98,6 +108,27 @@ async def test_full_stack_smoke() -> None:
         reading = r.json()
         assert len(reading) == 1
 
+        # --- auto-tag: new books get Claude-generated tags if the Anthropic
+        #     API is reachable. If not, the feature silently degrades and we
+        #     only assert that book creation still succeeds and the tags
+        #     field is still present as a list.
+        r = await c.post(
+            "/books",
+            json={"title": "Dune", "author": "Frank Herbert"},
+            headers=auth,
+        )
+        assert r.status_code == 201, r.text
+        dune = r.json()
+        assert isinstance(dune["tags"], list)
+        if dune["tags"]:
+            # Claude path worked — assert style properties
+            tag_names = [t["name"] for t in dune["tags"]]
+            for name in tag_names:
+                assert name == name.lower(), f"tag not lowercased: {name}"
+                assert " " not in name, f"tag contains space: {name}"
+                assert len(name) <= 30, f"tag too long: {name}"
+            assert len(tag_names) <= 5, f"too many tags: {tag_names}"
+
         # --- tag filter ---
         r = await c.get("/books", params={"tag": "fantasy"}, headers=auth)
         assert r.status_code == 200
@@ -107,8 +138,12 @@ async def test_full_stack_smoke() -> None:
         r = await c.get("/search", params={"q": "wind"}, headers=auth)
         assert r.status_code == 200
         grouped = r.json()
+        assert "dnf" in grouped
         total = (
-            len(grouped["want_to_read"]) + len(grouped["reading"]) + len(grouped["finished"])
+            len(grouped["want_to_read"])
+            + len(grouped["reading"])
+            + len(grouped["finished"])
+            + len(grouped["dnf"])
         )
         assert total >= 1
 
@@ -116,8 +151,11 @@ async def test_full_stack_smoke() -> None:
         r = await c.get("/stats", headers=auth)
         assert r.status_code == 200
         stats = r.json()
-        assert stats["total_books"] == 5
+        assert stats["total_books"] == 6
         assert "by_status" in stats
+        assert stats["by_status"].get("dnf", 0) >= 1
+        # DNF books must not inflate completion metrics.
+        assert stats["finished_this_year"] == 0
         assert len(stats["finished_by_month"]) == 12
 
         # --- recommendations: must at least respond sanely ---
@@ -142,4 +180,4 @@ async def test_full_stack_smoke() -> None:
         api_key_auth = {"Authorization": f"Bearer {plain_key}"}
         r = await c.get("/books", headers=api_key_auth)
         assert r.status_code == 200
-        assert len(r.json()) == 5
+        assert len(r.json()) == 6

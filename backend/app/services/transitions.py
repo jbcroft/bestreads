@@ -19,6 +19,10 @@ def apply_status_transition(book: Book, new_status: BookStatus) -> None:
     elif new_status == BookStatus.want_to_read:
         book.started_at = None
         book.finished_at = None
+    elif new_status == BookStatus.dnf:
+        if book.started_at is None:
+            book.started_at = now
+        book.finished_at = None
     book.status = new_status
 
 

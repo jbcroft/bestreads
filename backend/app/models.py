@@ -27,6 +27,7 @@ class BookStatus(str, enum.Enum):
     want_to_read = "want_to_read"
     reading = "reading"
     finished = "finished"
+    dnf = "dnf"
 
 
 book_tags = Table(

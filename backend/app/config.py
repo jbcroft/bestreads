@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
 
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-sonnet-4-20250514"
+    anthropic_model: str = "claude-opus-4-6"
 
     covers_dir: str = "/app/covers"
     covers_url_prefix: str = "/covers"

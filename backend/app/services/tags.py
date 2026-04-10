@@ -37,3 +37,18 @@ async def resolve_or_create_tags(
         result.append(tag)
     await session.flush()
     return result
+
+
+async def load_user_tag_names(session: AsyncSession, user_id: UUID) -> list[str]:
+    """Return every tag name owned by a user, alphabetized.
+
+    Loads ALL of the user's tags, not just tags currently applied to
+    books — if the user created a tag but hasn't attached it to
+    anything yet, the tag generator should still see it as a candidate
+    for reuse. Alphabetized so the Claude prompt is deterministic
+    across calls (aids reproducibility when debugging).
+    """
+    result = await session.execute(
+        select(Tag.name).where(Tag.user_id == user_id).order_by(Tag.name)
+    )
+    return [row[0] for row in result.all()]

@@ -130,27 +130,67 @@ async def create_book(
     await session.commit()
     await session.refresh(book, attribute_names=["tags"])
 
-    # Opportunistic cover download. Priority:
-    #   1) explicit cover_url from the client (e.g. quick-add chose an
-    #      Open Library search result that had a cover_i but no isbn)
-    #   2) ISBN-based cover lookup against Open Library
+    # Opportunistic cover download via the resolver cascade:
+    #   cover_url → ISBN → title+author search
     if not book.cover_image_path:
-        local: str | None = None
-        try:
-            if payload.cover_url:
-                from ..services.openlibrary import download_cover_from_url
+        from ..services.cover_resolver import resolve_book_cover
 
-                local = await download_cover_from_url(payload.cover_url)
-            if not local and book.isbn:
-                from ..services.openlibrary import download_cover
-
-                local = await download_cover(book.isbn)
-        except Exception:
-            local = None
-
+        local = await resolve_book_cover(
+            title=book.title,
+            author=book.author,
+            isbn=book.isbn,
+            cover_url=payload.cover_url,
+        )
         if local:
             book.cover_image_path = local
             session.add(book)
+            await session.commit()
+            await session.refresh(book, attribute_names=["tags"])
+
+    # Opportunistic description fetch from Open Library.
+    if not book.description:
+        from ..services.openlibrary import fetch_description
+
+        try:
+            desc = await fetch_description(
+                title=book.title,
+                author=book.author,
+                isbn=book.isbn,
+            )
+        except Exception:
+            desc = None
+        if desc:
+            book.description = desc
+            session.add(book)
+            await session.commit()
+            await session.refresh(book, attribute_names=["tags"])
+
+    # Opportunistic tag generation via Claude. Runs on every POST /books,
+    # even when the user passed explicit tag_names — Claude's tags merge
+    # on top of manual ones. Failure degrades silently.
+    try:
+        from ..services.tag_generator import generate_book_tags
+        from ..services.tags import load_user_tag_names
+
+        existing_vocab = await load_user_tag_names(session, user.id)
+        suggested = await generate_book_tags(
+            title=book.title,
+            author=book.author,
+            description=book.description,
+            existing_user_tags=existing_vocab,
+        )
+    except Exception:
+        suggested = []
+
+    if suggested:
+        new_tags = await resolve_or_create_tags(session, user.id, suggested)
+        existing_ids = {t.id for t in book.tags}
+        actually_new = [t for t in new_tags if t.id not in existing_ids]
+        if actually_new:
+            for t in actually_new:
+                book.tags.append(t)
+            session.add(book)
+            await touch_library(user, session)
             await session.commit()
             await session.refresh(book, attribute_names=["tags"])
 
@@ -240,6 +280,21 @@ async def reset_book(
 ) -> BookRead:
     book = await _load_book(session, book_id, user)
     apply_status_transition(book, BookStatus.want_to_read)
+    await touch_library(user, session)
+    session.add(book)
+    await session.commit()
+    await session.refresh(book, attribute_names=["tags"])
+    return book_to_read(book)
+
+
+@router.post("/{book_id}/dnf", response_model=BookRead)
+async def dnf_book(
+    book_id: UUID,
+    user: User = Depends(get_auth_user),
+    session: AsyncSession = Depends(get_session),
+) -> BookRead:
+    book = await _load_book(session, book_id, user)
+    apply_status_transition(book, BookStatus.dnf)
     await touch_library(user, session)
     session.add(book)
     await session.commit()
