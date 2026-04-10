@@ -34,7 +34,7 @@ _UNCATEGORIZED_COLOR = "#6b7280"  # gray
 _EDGE_THRESHOLD = 0.05
 
 # Distance threshold for agglomerative clustering.
-_CLUSTER_DISTANCE = 1.0
+_CLUSTER_DISTANCE = 0.95
 
 
 @dataclass
@@ -130,7 +130,7 @@ def build_network_graph(books: list[BookData]) -> NetworkResponse:
         edges: list[NetworkEdge] = []
         if len(content_books) == 2:
             corpus = [_build_corpus(b) for b in content_books]
-            vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 1))
+            vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
             tfidf = vec.fit_transform(corpus)
             sim = cosine_similarity(tfidf)[0, 1]
             if sim > _EDGE_THRESHOLD:
@@ -147,7 +147,7 @@ def build_network_graph(books: list[BookData]) -> NetworkResponse:
     # --- Main path: 3+ books with content ---
 
     corpus = [_build_corpus(b) for _, b in has_content]
-    vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 1))
+    vectorizer = TfidfVectorizer(stop_words="english", ngram_range=(1, 2))
     tfidf_matrix = vectorizer.fit_transform(corpus)
 
     # Cosine similarity matrix.

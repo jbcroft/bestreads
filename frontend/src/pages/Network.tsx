@@ -2,7 +2,16 @@ import { useNetwork } from "../api/network";
 import NetworkGraph from "../components/NetworkGraph";
 
 export default function Network() {
-  const { data, isLoading } = useNetwork();
+  const { data, isLoading, isError } = useNetwork();
+
+  if (isError) {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <h1 className="font-serif text-3xl">Network</h1>
+        <p className="text-zinc-500">Failed to load network data. Please try again later.</p>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return (

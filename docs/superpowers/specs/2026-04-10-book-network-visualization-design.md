@@ -34,9 +34,9 @@ Segment a user's book library algorithmically using TF-IDF similarity on descrip
 
 2. **TF-IDF vectorize** — `TfidfVectorizer` from scikit-learn with English stop words, 1-2 word n-grams. Produces a sparse matrix of book vectors.
 
-3. **Cosine similarity matrix** — compute pairwise cosine similarity from the TF-IDF matrix. Only emit edges where similarity > 0.15.
+3. **Cosine similarity matrix** — compute pairwise cosine similarity from the TF-IDF matrix. Only emit edges where similarity > 0.05 (TF-IDF on natural-language book descriptions produces low absolute similarity scores; 0.05 captures meaningful relationships without noise).
 
-4. **Agglomerative clustering** — `AgglomerativeClustering` with `distance_threshold=1.2`, `n_clusters=None`. Adapts to library size: a 10-book library might get 2-3 clusters, a 100-book library 8-12.
+4. **Agglomerative clustering** — `AgglomerativeClustering` with `distance_threshold=0.95`, `n_clusters=None`, `metric="precomputed"`, `linkage="average"`. Empirically tuned: groups books sharing genre/theme vocabulary while separating distinct categories. Adapts to library size.
 
 5. **Cluster labeling** — for each cluster, find the top 2-3 most frequent tags across its member books and join them as the label (e.g. "sci-fi / dystopia").
 

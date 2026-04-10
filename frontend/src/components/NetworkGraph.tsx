@@ -12,8 +12,6 @@ import { select } from "d3-selection";
 import { zoom, zoomIdentity } from "d3-zoom";
 import { polygonHull } from "d3-polygon";
 import type {
-  NetworkCluster,
-  NetworkEdge,
   NetworkNode,
   NetworkResponse,
 } from "../api/types";

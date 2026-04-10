@@ -13,11 +13,41 @@ def _book(id: str, title: str, author: str, description: str, tags: list[str]) -
     )
 
 
-SCIFI_A = _book("aaa", "Dune", "Herbert", "desert planet spice worms empire", ["scifi", "space-opera"])
-SCIFI_B = _book("bbb", "Neuromancer", "Gibson", "cyberspace hacking matrix AI", ["scifi", "cyberpunk"])
-FANTASY_A = _book("ccc", "Name of the Wind", "Rothfuss", "magic university wizard music", ["fantasy", "magic"])
-FANTASY_B = _book("ddd", "Way of Kings", "Sanderson", "knights magic war stormlight", ["fantasy", "epic"])
-HISTORY = _book("eee", "Sapiens", "Harari", "human history civilization evolution", ["nonfiction", "history"])
+SCIFI_A = _book(
+    "aaa", "Dune", "Herbert",
+    "A science fiction epic set on a desert planet where noble houses battle for "
+    "control of the spice melange, a substance that enables space travel and "
+    "grants prescience. Themes of politics, ecology, and interstellar empire.",
+    ["scifi", "space-opera"],
+)
+SCIFI_B = _book(
+    "bbb", "Neuromancer", "Gibson",
+    "A washed-up computer hacker is hired for the ultimate hack in this science "
+    "fiction novel set in a gritty future of cyberspace, artificial intelligence, "
+    "and mega-corporations. Pioneering cyberpunk that defined the genre.",
+    ["scifi", "cyberpunk"],
+)
+FANTASY_A = _book(
+    "ccc", "Name of the Wind", "Rothfuss",
+    "A fantasy novel following a young wizard's journey through a magical "
+    "university. Epic worldbuilding with magic systems, music, and a quest "
+    "for knowledge. A coming-of-age tale in a richly imagined fantasy world.",
+    ["fantasy", "magic"],
+)
+FANTASY_B = _book(
+    "ddd", "Way of Kings", "Sanderson",
+    "An epic fantasy saga of knights and magical warfare on a world battered "
+    "by storms. Features intricate magic systems, worldbuilding, and a cast "
+    "of characters fighting ancient wars. Epic fantasy at its grandest scale.",
+    ["fantasy", "epic"],
+)
+HISTORY = _book(
+    "eee", "Sapiens", "Harari",
+    "A sweeping nonfiction history of humankind from the Stone Age to the "
+    "present. Examines how biology, economics, and culture shaped civilization. "
+    "Covers the cognitive revolution, agriculture, and the rise of empires.",
+    ["nonfiction", "history"],
+)
 
 
 def test_similar_books_share_cluster():
