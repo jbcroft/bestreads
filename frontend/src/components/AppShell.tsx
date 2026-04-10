@@ -8,6 +8,7 @@ import clsx from "clsx";
 const navLinks = [
   { to: "/", label: "Home", end: true },
   { to: "/library", label: "Library" },
+  { to: "/network", label: "Network" },
   { to: "/stats", label: "Stats" },
   { to: "/settings", label: "Settings" },
 ];
