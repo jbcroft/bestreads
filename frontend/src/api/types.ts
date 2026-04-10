@@ -82,3 +82,32 @@ export interface RecommendationsResponse {
   recommendations: RecommendationItem[];
   generated_at: string | null;
 }
+
+export interface NetworkNode {
+  id: string;
+  title: string;
+  author: string;
+  cluster: number;
+  tags: string[];
+  description: string | null;
+  rating: number | null;
+  cover_url: string | null;
+}
+
+export interface NetworkEdge {
+  source: string;
+  target: string;
+  weight: number;
+}
+
+export interface NetworkCluster {
+  id: number;
+  label: string;
+  color: string;
+}
+
+export interface NetworkResponse {
+  clusters: NetworkCluster[];
+  nodes: NetworkNode[];
+  edges: NetworkEdge[];
+}
