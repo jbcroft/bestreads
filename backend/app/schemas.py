@@ -186,3 +186,35 @@ class RecommendationsResponse(BaseModel):
     message: str | None = None
     recommendations: list[RecommendationItem] = Field(default_factory=list)
     generated_at: datetime | None = None
+
+
+# ---------- Network / Segmentation ----------
+
+
+class NetworkNode(BaseModel):
+    id: UUID
+    title: str
+    author: str
+    cluster: int
+    tags: list[str]
+    description: str | None
+    rating: int | None
+    cover_url: str | None
+
+
+class NetworkEdge(BaseModel):
+    source: UUID
+    target: UUID
+    weight: float
+
+
+class NetworkCluster(BaseModel):
+    id: int
+    label: str
+    color: str
+
+
+class NetworkResponse(BaseModel):
+    clusters: list[NetworkCluster]
+    nodes: list[NetworkNode]
+    edges: list[NetworkEdge]
