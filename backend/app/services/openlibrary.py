@@ -12,6 +12,18 @@ OPEN_LIBRARY_BASE = "https://openlibrary.org"
 OPEN_LIBRARY_COVERS = "https://covers.openlibrary.org"
 
 
+def _client() -> httpx.AsyncClient:
+    """AsyncClient preconfigured for Open Library.
+
+    Open Library blocks/throttles requests that don't send a descriptive
+    User-Agent, so we always identify the app and a contact.
+    """
+    return httpx.AsyncClient(
+        follow_redirects=True,
+        headers={"User-Agent": settings.openlibrary_user_agent},
+    )
+
+
 async def _fetch_json(client: httpx.AsyncClient, url: str) -> dict | None:
     try:
         r = await client.get(url, timeout=10.0)
@@ -35,7 +47,7 @@ async def _resolve_author_name(client: httpx.AsyncClient, author_key: str) -> st
 async def lookup_isbn(isbn: str) -> dict | None:
     """Fetch metadata for a given ISBN from Open Library."""
     url = f"{OPEN_LIBRARY_BASE}/isbn/{isbn}.json"
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with _client() as client:
         data = await _fetch_json(client, url)
         if not data:
             return None
@@ -74,7 +86,7 @@ async def lookup_isbn(isbn: str) -> dict | None:
 async def search_books(q: str, limit: int = 10) -> list[dict]:
     """Search Open Library by query for the quick-add flow."""
     url = f"{OPEN_LIBRARY_BASE}/search.json"
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with _client() as client:
         try:
             r = await client.get(url, params={"q": q, "limit": limit}, timeout=10.0)
         except httpx.RequestError:
@@ -128,7 +140,7 @@ async def download_cover_from_url(url: str, suggested_name: str | None = None) -
     # Prefer large size if the URL used a smaller one
     upgraded = url.replace("-M.jpg", "-L.jpg").replace("-S.jpg", "-L.jpg")
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with _client() as client:
         try:
             r = await client.get(upgraded, timeout=15.0)
         except httpx.RequestError:
@@ -272,7 +284,7 @@ async def fetch_description(
 
     Returns a trimmed 1-paragraph blurb or ``None``.
     """
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with _client() as client:
         # 1. ISBN edition endpoint
         if isbn:
             edition = await _fetch_json(client, f"{OPEN_LIBRARY_BASE}/isbn/{isbn}.json")
