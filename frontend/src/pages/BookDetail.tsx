@@ -16,6 +16,9 @@ export default function BookDetail() {
   const toast = useToast();
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [authorDraft, setAuthorDraft] = useState("");
 
   if (isLoading || !book) {
     return <div className="h-64 animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-900" />;
@@ -29,6 +32,18 @@ export default function BookDetail() {
   const onRate = async (rating: number | null) => {
     await update.mutateAsync({ id: book.id, payload: { rating: rating ?? undefined } });
     toast.push("Rating saved", "success");
+  };
+
+  const onSaveInfo = async () => {
+    const title = titleDraft.trim();
+    const author = authorDraft.trim();
+    if (!title || !author) {
+      toast.push("Title and author can't be empty", "error");
+      return;
+    }
+    await update.mutateAsync({ id: book.id, payload: { title, author } });
+    toast.push("Book updated", "success");
+    setEditingInfo(false);
   };
 
   const onSaveNotes = async () => {
@@ -65,10 +80,56 @@ export default function BookDetail() {
         </div>
 
         <div className="space-y-6">
-          <div>
-            <h1 className="font-serif text-3xl leading-tight">{book.title}</h1>
-            <p className="mt-1 text-base text-zinc-500">{book.author}</p>
-          </div>
+          {editingInfo ? (
+            <div className="space-y-2">
+              <input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                placeholder="Title"
+                autoFocus
+                className="w-full rounded border border-zinc-200 bg-transparent px-3 py-2 font-serif text-2xl outline-none focus:border-accent dark:border-zinc-700"
+              />
+              <input
+                value={authorDraft}
+                onChange={(e) => setAuthorDraft(e.target.value)}
+                placeholder="Author"
+                className="w-full rounded border border-zinc-200 bg-transparent px-3 py-2 text-base outline-none focus:border-accent dark:border-zinc-700"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={onSaveInfo}
+                  disabled={update.isPending}
+                  className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingInfo(false)}
+                  className="rounded px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="group">
+              <div className="flex items-start gap-2">
+                <h1 className="font-serif text-3xl leading-tight">{book.title}</h1>
+                <button
+                  onClick={() => {
+                    setTitleDraft(book.title);
+                    setAuthorDraft(book.author);
+                    setEditingInfo(true);
+                  }}
+                  title="Edit title and author"
+                  className="mt-2 text-zinc-400 opacity-0 transition-opacity hover:text-accent focus:opacity-100 group-hover:opacity-100"
+                >
+                  <Edit3 size={16} />
+                </button>
+              </div>
+              <p className="mt-1 text-base text-zinc-500">{book.author}</p>
+            </div>
+          )}
 
           <StatusControl current={book.status} onChange={onTransition} />
 
