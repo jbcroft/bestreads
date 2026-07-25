@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     covers_dir: str = "/app/covers"
     covers_url_prefix: str = "/covers"
 
+    # Open Library requires a descriptive User-Agent that identifies the app
+    # and a contact; requests using a generic agent (e.g. the httpx default)
+    # are throttled or blocked. See https://openlibrary.org/developers/api
+    openlibrary_user_agent: str = (
+        "BestReads/1.0 (+https://github.com/jbcroft/bestreads; book tracker app)"
+    )
+
     cors_origins: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
