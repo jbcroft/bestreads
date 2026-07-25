@@ -33,6 +33,7 @@ export default function Library() {
   });
 
   const books = booksQ.data ?? [];
+  const finished2026 = status === "finished" && tag === "2026";
 
   return (
     <div className="space-y-6">
@@ -95,6 +96,21 @@ export default function Library() {
                 {STATUS_LABELS[s]}
               </FilterChip>
             ))}
+            <span className="mx-1 self-center border-l border-zinc-200 dark:border-zinc-700" style={{ height: "1rem" }} />
+            <FilterChip
+              active={finished2026}
+              onClick={() => {
+                if (finished2026) {
+                  setStatus(undefined);
+                  setTag(undefined);
+                } else {
+                  setStatus("finished");
+                  setTag("2026");
+                }
+              }}
+            >
+              Finished in 2026
+            </FilterChip>
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
