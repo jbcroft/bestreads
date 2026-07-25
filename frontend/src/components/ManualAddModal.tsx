@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useBookMutations } from "../api/books";
 import { useToast } from "./Toast";
 
@@ -13,50 +15,79 @@ export default function ManualAddModal({
   const [author, setAuthor] = useState("");
   const [tags, setTags] = useState("");
   const [pageCount, setPageCount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [added, setAdded] = useState(false);
   const { create } = useBookMutations();
   const toast = useToast();
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !author.trim()) return;
-    await create.mutateAsync({
-      title: title.trim(),
-      author: author.trim(),
-      page_count: pageCount ? parseInt(pageCount, 10) : undefined,
-      status: "want_to_read",
-      tag_names: tags.split(",").map((t) => t.trim()).filter(Boolean),
-    });
-    toast.push(`Added "${title.trim()}"`, "success");
-    onClose();
+    if (!title.trim() || !author.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await create.mutateAsync({
+        title: title.trim(),
+        author: author.trim(),
+        page_count: pageCount ? parseInt(pageCount, 10) : undefined,
+        status: "want_to_read",
+        tag_names: tags.split(",").map((t) => t.trim()).filter(Boolean),
+      });
+      setAdded(true);
+      toast.push(`Added "${title.trim()}"`, "success");
+      window.setTimeout(onClose, 1200);
+    } catch {
+      toast.push("Couldn't add the book — please try again", "error");
+      setSubmitting(false);
+    }
   };
 
-  return (
+  // Portal to <body>: this modal is mounted inside the sticky header, whose
+  // backdrop-blur creates a containing block that would trap fixed positioning.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-4 font-serif text-xl">Add a book</h2>
-        <form onSubmit={onSubmit} className="space-y-3">
-          <Field label="Title" value={title} onChange={setTitle} required />
-          <Field label="Author" value={author} onChange={setAuthor} required />
-          <Field label="Tags (comma separated)" value={tags} onChange={setTags} />
-          <Field label="Page count" value={pageCount} onChange={setPageCount} type="number" />
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
-            >
-              Add book
-            </button>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+        {added ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center animate-fade-in">
+            <CheckCircle2 size={40} className="text-accent" />
+            <div>
+              <div className="font-serif text-lg">Added to your library</div>
+              <div className="mt-1 text-sm text-zinc-500">“{title.trim()}”</div>
+            </div>
           </div>
-        </form>
+        ) : (
+          <>
+            <h2 className="mb-4 font-serif text-xl">Add a book</h2>
+            <form onSubmit={onSubmit} className="space-y-3">
+              <fieldset disabled={submitting} className="space-y-3 disabled:opacity-60">
+                <Field label="Title" value={title} onChange={setTitle} required />
+                <Field label="Author" value={author} onChange={setAuthor} required />
+                <Field label="Tags (comma separated)" value={tags} onChange={setTags} />
+                <Field label="Page count" value={pageCount} onChange={setPageCount} type="number" />
+              </fieldset>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={submitting}
+                  className="rounded px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-70"
+                >
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  {submitting ? "Adding…" : "Add book"}
+                </button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
