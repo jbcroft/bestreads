@@ -76,6 +76,7 @@ async def generate_recommendations(
     count: int = 3,
     mood: str | None = None,
     tag_filter: str | None = None,
+    excluded: list[str] | None = None,
 ) -> list[dict[str, str]]:
     if not settings.anthropic_api_key:
         return []
@@ -95,6 +96,12 @@ async def generate_recommendations(
     if tag_filter:
         constraints.append(
             f"Prioritize books that fit this tag/genre: {tag_filter}."
+        )
+    if excluded:
+        excluded_lines = "\n".join(f"- {e}" for e in excluded)
+        constraints.append(
+            "The reader has marked these books as not interested; "
+            f"do NOT recommend any of them:\n{excluded_lines}"
         )
     constraints_text = ("\n".join(constraints) + "\n") if constraints else ""
 

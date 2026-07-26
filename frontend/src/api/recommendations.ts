@@ -24,3 +24,10 @@ export function useRecommendations(filters: RecommendationFilters = {}) {
     staleTime: 1000 * 60 * 5,
   });
 }
+
+export async function dismissRecommendation(payload: {
+  title: string;
+  author: string;
+}): Promise<void> {
+  await api.post("/recommendations/dismiss", payload);
+}

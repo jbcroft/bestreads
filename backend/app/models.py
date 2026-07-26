@@ -145,3 +145,22 @@ class Recommendation(Base):
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class DismissedRecommendation(Base):
+    __tablename__ = "dismissed_recommendations"
+    __table_args__ = (
+        UniqueConstraint("user_id", "title", "author", name="uq_dismissed_user_title_author"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    author: Mapped[str] = mapped_column(String(512), nullable=False)
+    dismissed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

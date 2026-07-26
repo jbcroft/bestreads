@@ -10,8 +10,12 @@ from sqlalchemy.orm import selectinload
 from ..config import settings
 from ..db import get_session
 from ..deps import get_auth_user
-from ..models import Book, Recommendation, User
-from ..schemas import RecommendationItem, RecommendationsResponse
+from ..models import Book, DismissedRecommendation, Recommendation, User
+from ..schemas import (
+    RecommendationDismissRequest,
+    RecommendationItem,
+    RecommendationsResponse,
+)
 from ..services.anthropic_recs import generate_recommendations
 
 router = APIRouter(tags=["recommendations"])
@@ -120,10 +124,27 @@ async def get_recommendations(
                 generated_at=newest,
             )
 
-    # Generate fresh
-    items = await generate_recommendations(
-        books, count=count, mood=mood, tag_filter=tag
+    # Generate fresh, excluding anything the user marked "not interested"
+    dismissed_result = await session.execute(
+        select(DismissedRecommendation).where(
+            DismissedRecommendation.user_id == user.id
+        )
     )
+    dismissed = list(dismissed_result.scalars().all())
+    items = await generate_recommendations(
+        books,
+        count=count,
+        mood=mood,
+        tag_filter=tag,
+        excluded=[f"{d.title} by {d.author}" for d in dismissed],
+    )
+    # Belt and braces: drop anything the model suggests despite the exclusion
+    dismissed_keys = {(d.title.casefold(), d.author.casefold()) for d in dismissed}
+    items = [
+        i
+        for i in items
+        if (i["title"].casefold(), i["author"].casefold()) not in dismissed_keys
+    ]
     if not items:
         return RecommendationsResponse(
             available=False,
@@ -142,3 +163,36 @@ async def get_recommendations(
         ],
         generated_at=rows[0].generated_at if rows else None,
     )
+
+
+@router.post("/recommendations/dismiss", status_code=204)
+async def dismiss_recommendation(
+    payload: RecommendationDismissRequest,
+    user: User = Depends(get_auth_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    title = payload.title.strip()
+    author = payload.author.strip()
+
+    existing = await session.execute(
+        select(DismissedRecommendation).where(
+            DismissedRecommendation.user_id == user.id,
+            DismissedRecommendation.title == title,
+            DismissedRecommendation.author == author,
+        )
+    )
+    if existing.scalars().first() is None:
+        session.add(
+            DismissedRecommendation(user_id=user.id, title=title, author=author)
+        )
+
+    # Evict it from every cached recommendation set so the next fetch
+    # regenerates without it.
+    await session.execute(
+        delete(Recommendation).where(
+            Recommendation.user_id == user.id,
+            Recommendation.title == title,
+            Recommendation.author == author,
+        )
+    )
+    await session.commit()

@@ -188,6 +188,11 @@ class RecommendationsResponse(BaseModel):
     generated_at: datetime | None = None
 
 
+class RecommendationDismissRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=512)
+    author: str = Field(min_length=1, max_length=512)
+
+
 # ---------- Network / Segmentation ----------
 
 
