@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..db import get_session
+from ..db import SessionLocal, get_session
 from ..deps import get_auth_user
 from ..models import Book, BookStatus, Tag, User, book_tags
 from ..schemas import (
@@ -96,9 +96,88 @@ async def get_book(
     return book_to_read(book)
 
 
+async def _enrich_book(book_id: UUID, cover_url: str | None) -> None:
+    """Post-create enrichment (cover, description, Claude tags).
+
+    Runs as a background task after the create response is sent, in its own
+    session — every step degrades silently on failure.
+    """
+    async with SessionLocal() as session:
+        result = await session.execute(
+            select(Book).where(Book.id == book_id).options(selectinload(Book.tags))
+        )
+        book = result.scalar_one_or_none()
+        if book is None:  # deleted before enrichment ran
+            return
+
+        if not book.cover_image_path:
+            from ..services.cover_resolver import resolve_book_cover
+
+            try:
+                local = await resolve_book_cover(
+                    title=book.title,
+                    author=book.author,
+                    isbn=book.isbn,
+                    cover_url=cover_url,
+                )
+            except Exception:
+                local = None
+            if local:
+                book.cover_image_path = local
+                session.add(book)
+                await session.commit()
+
+        if not book.description:
+            from ..services.openlibrary import fetch_description
+
+            try:
+                desc = await fetch_description(
+                    title=book.title,
+                    author=book.author,
+                    isbn=book.isbn,
+                )
+            except Exception:
+                desc = None
+            if desc:
+                book.description = desc
+                session.add(book)
+                await session.commit()
+
+        try:
+            from ..services.tag_generator import generate_book_tags
+            from ..services.tags import load_user_tag_names
+
+            existing_vocab = await load_user_tag_names(session, book.user_id)
+            suggested = await generate_book_tags(
+                title=book.title,
+                author=book.author,
+                description=book.description,
+                existing_user_tags=existing_vocab,
+            )
+        except Exception:
+            suggested = []
+
+        if suggested:
+            new_tags = await resolve_or_create_tags(session, book.user_id, suggested)
+            existing_ids = {t.id for t in book.tags}
+            actually_new = [t for t in new_tags if t.id not in existing_ids]
+            if actually_new:
+                for t in actually_new:
+                    book.tags.append(t)
+                session.add(book)
+                user_result = await session.execute(
+                    select(User).where(User.id == book.user_id)
+                )
+                owner = user_result.scalar_one_or_none()
+                if owner is not None:
+                    await touch_library(owner, session)
+                await session.commit()
+
+
 @router.post("", response_model=BookRead, status_code=status.HTTP_201_CREATED)
 async def create_book(
     payload: BookCreate,
+    background_tasks: BackgroundTasks,
     user: User = Depends(get_auth_user),
     session: AsyncSession = Depends(get_session),
 ) -> BookRead:
@@ -130,69 +209,9 @@ async def create_book(
     await session.commit()
     await session.refresh(book, attribute_names=["tags"])
 
-    # Opportunistic cover download via the resolver cascade:
-    #   cover_url → ISBN → title+author search
-    if not book.cover_image_path:
-        from ..services.cover_resolver import resolve_book_cover
-
-        local = await resolve_book_cover(
-            title=book.title,
-            author=book.author,
-            isbn=book.isbn,
-            cover_url=payload.cover_url,
-        )
-        if local:
-            book.cover_image_path = local
-            session.add(book)
-            await session.commit()
-            await session.refresh(book, attribute_names=["tags"])
-
-    # Opportunistic description fetch from Open Library.
-    if not book.description:
-        from ..services.openlibrary import fetch_description
-
-        try:
-            desc = await fetch_description(
-                title=book.title,
-                author=book.author,
-                isbn=book.isbn,
-            )
-        except Exception:
-            desc = None
-        if desc:
-            book.description = desc
-            session.add(book)
-            await session.commit()
-            await session.refresh(book, attribute_names=["tags"])
-
-    # Opportunistic tag generation via Claude. Runs on every POST /books,
-    # even when the user passed explicit tag_names — Claude's tags merge
-    # on top of manual ones. Failure degrades silently.
-    try:
-        from ..services.tag_generator import generate_book_tags
-        from ..services.tags import load_user_tag_names
-
-        existing_vocab = await load_user_tag_names(session, user.id)
-        suggested = await generate_book_tags(
-            title=book.title,
-            author=book.author,
-            description=book.description,
-            existing_user_tags=existing_vocab,
-        )
-    except Exception:
-        suggested = []
-
-    if suggested:
-        new_tags = await resolve_or_create_tags(session, user.id, suggested)
-        existing_ids = {t.id for t in book.tags}
-        actually_new = [t for t in new_tags if t.id not in existing_ids]
-        if actually_new:
-            for t in actually_new:
-                book.tags.append(t)
-            session.add(book)
-            await touch_library(user, session)
-            await session.commit()
-            await session.refresh(book, attribute_names=["tags"])
+    # Enrichment (cover download, description fetch, Claude tag generation)
+    # involves several slow network calls, so it runs after the response.
+    background_tasks.add_task(_enrich_book, book.id, payload.cover_url)
 
     return book_to_read(book)
 

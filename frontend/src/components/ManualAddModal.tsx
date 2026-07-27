@@ -2,7 +2,15 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useBookMutations } from "../api/books";
+import { BookStatus } from "../api/types";
 import { useToast } from "./Toast";
+
+const STATUS_OPTIONS: { value: BookStatus; label: string }[] = [
+  { value: "want_to_read", label: "Want to Read" },
+  { value: "reading", label: "Reading" },
+  { value: "finished", label: "Finished" },
+  { value: "dnf", label: "DNF" },
+];
 
 export default function ManualAddModal({
   initialQuery = "",
@@ -15,6 +23,7 @@ export default function ManualAddModal({
   const [author, setAuthor] = useState("");
   const [tags, setTags] = useState("");
   const [pageCount, setPageCount] = useState("");
+  const [status, setStatus] = useState<BookStatus>("want_to_read");
   const [submitting, setSubmitting] = useState(false);
   const [added, setAdded] = useState(false);
   const { create } = useBookMutations();
@@ -29,7 +38,7 @@ export default function ManualAddModal({
         title: title.trim(),
         author: author.trim(),
         page_count: pageCount ? parseInt(pageCount, 10) : undefined,
-        status: "want_to_read",
+        status,
         tag_names: tags.split(",").map((t) => t.trim()).filter(Boolean),
       });
       setAdded(true);
@@ -61,6 +70,27 @@ export default function ManualAddModal({
               <fieldset disabled={submitting} className="space-y-3 disabled:opacity-60">
                 <Field label="Title" value={title} onChange={setTitle} required />
                 <Field label="Author" value={author} onChange={setAuthor} required />
+                <div>
+                  <span className="mb-1 block text-xs font-medium text-zinc-500">Status</span>
+                  <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Status">
+                    {STATUS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={status === opt.value}
+                        onClick={() => setStatus(opt.value)}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          status === opt.value
+                            ? "border-accent bg-accent text-white"
+                            : "border-zinc-200 text-zinc-600 hover:border-accent hover:text-accent dark:border-zinc-700 dark:text-zinc-300"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <Field label="Tags (comma separated)" value={tags} onChange={setTags} />
                 <Field label="Page count" value={pageCount} onChange={setPageCount} type="number" />
               </fieldset>

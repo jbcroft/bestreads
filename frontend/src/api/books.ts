@@ -107,7 +107,15 @@ export function useBookMutations() {
 
   const create = useMutation({
     mutationFn: createBook,
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      // Cover/description/tags are enriched server-side after the create
+      // returns; refetch once they've had a chance to land.
+      window.setTimeout(() => {
+        qc.invalidateQueries({ queryKey: ["books"] });
+        qc.invalidateQueries({ queryKey: ["book"] });
+      }, 8000);
+    },
   });
   const update = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<BookCreatePayload> }) =>
